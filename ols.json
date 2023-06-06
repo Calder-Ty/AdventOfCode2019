@@ -1,0 +1,6 @@
+{
+	"collections": [
+		{ "name": "core", "path": "/home/tyler/.local/bin/Odin/core/" },
+		{ "name": "shared", "path": "./" }
+	]
+}
