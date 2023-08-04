@@ -7,6 +7,8 @@ import "core:strings";
 import "core:strconv";
 import "core:mem";
 
+BUFFER_SIZE :: 2048;
+
 main::proc() {
 	track: mem.Tracking_Allocator;
 	mem.tracking_allocator_init(&track, context.allocator);
@@ -33,39 +35,50 @@ _main :: proc ()  {
 	}
 	defer os.close(fh);
 	reader: bufio.Reader;
-	buffer: [2048]byte;
+	buffer: [BUFFER_SIZE]byte;
 
 	bufio.reader_init_with_buf(&reader, {os.stream_from_handle(fh)}, buffer[:]);
 	defer bufio.reader_destroy(&reader);
 
-
-	sum :u64 = 0;
 	line, err := bufio.reader_read_string(&reader, '\n')
 	if err != nil {
 		fmt.panicf("Unable to read line");
 	}
 	defer delete(line);
-	line = strings.trim_right(line, "\n");
+	prog: [BUFFER_SIZE]byte;
+	index := 0;
+	for r in line
 
-	prog := strings.split(line, ",");
-	defer delete(prog);
 
 	fmt.println(prog);
 
 }
 
-// Op-codes
+// Format of the Intcode
+// OPCODE, Input, Input, Output
+// OPCODES:
+// 1: Add
+// 2: Multiply
 
-total_fuel :: proc (mass: int) -> (u64) {
-
-	fuel := 0;
-	delta:int = mass / 3 - 2;
-	for delta > 0 {
-		fuel += delta;
-		delta = delta / 3 - 2;
+compute :: proc( prog: []u8) {
+	
+	line_size := 4;
+	for offset := 0; offset < len(prog); offset += line_size {
+		line := prog[offset:][:line_size];
+		opcode := line[0]
+		a := line[1]
+		b := line[2]
+		out := line[3]
+		switch opcode {
+			case 1:
+				prog[out] = prog[a] + prog[b]
+			case 2:
+				prog[out] = prog[a] * prog[b]
+			case:
+				break
+		}
 	}
-
-	return u64(fuel);
-
 }
+
+
 
