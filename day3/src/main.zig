@@ -16,14 +16,40 @@ const WireSegment = struct {
     pub fn add(self: WireSegment, other: WireSegment) WireSegment {
         return WireSegment{ .x = self.x + other.x, .y = self.y + other.y };
     }
+
+    pub fn intersects(self: *const WireSegment, other: *const WireSegment) bool {
+        // Make sure we order the arguments right
+        // left->rigth/Horizontal, bottom->top/Vertical
+        return intersect_x_plane(self, other) and intersect_y_plane(self, other);
+    }
+
+    fn intersect_x_plane(self: *const WireSegment, other: *const WireSegment) bool {
+        return ((self.*.start.x <= other.*.start.x and other.*.start.x <= self.*.end.x) or
+            (self.*.start.x >= other.*.start.x and other.*.start.x >= self.*.end.x) or
+            (other.*.start.x <= self.*.start.x and self.*.start.x <= other.*.end.x) or
+            (other.*.start.x >= self.*.start.x and self.*.start.x >= other.*.end.x));
+    }
+
+    fn intersect_y_plane(self: *const WireSegment, other: *const WireSegment) bool {
+        return ((self.*.start.y <= other.*.start.y and other.*.start.y <= self.*.end.y) or
+            (self.*.start.y >= other.*.start.y and other.*.start.y >= self.*.end.y) or
+            (other.*.start.y <= self.*.start.y and self.*.start.y <= other.*.end.y) or
+            (other.*.start.y >= self.*.start.y and self.*.start.y >= other.*.end.y));
+    }
 };
 
 const Coord = struct {
     x: isize,
     y: isize,
 
+    const ORIGIN = Coord{ .x = 0, .y = 0 };
+
     pub fn add(self: Coord, other: Coord) Coord {
         return Coord{ .x = self.x + other.x, .y = self.y + other.y };
+    }
+
+    fn dist_manhattan(self: *const Coord) !isize {
+        return (try std.math.absInt(self.x)) + (try std.math.absInt(self.y));
     }
 };
 
@@ -33,24 +59,29 @@ pub fn main() !void {
 
     const allocator = arena.allocator();
 
-    const file = try std.fs.cwd().openFile("data/in.test", .{});
+    const file = try std.fs.cwd().openFile("data/in.prod", .{});
     defer file.close();
 
-    const input: []const u8 = try file.readToEndAlloc(allocator, 2048);
-    std.debug.print("{s}", .{input});
+    const input: []const u8 = try file.readToEndAlloc(allocator, 4096);
 
     var splits = std.mem.splitScalar(u8, input, '\n');
     const first = splits.next().?;
     const second = splits.next().?;
 
     const wire1 = try make_wire_segment(first, &allocator);
-    _ = wire1;
-
     const wire2 = try make_wire_segment(second, &allocator);
-    _ = wire2;
+
+    const coord = (try find_nearest_intersection(
+        wire1,
+        wire2,
+    )).?;
+    std.debug.print("Distance is {d}\n", .{try coord.dist_manhattan()});
 }
 
-fn make_wire_segment(in: []const u8, allocator: *const std.mem.Allocator) !std.ArrayList(WireSegment) {
+fn make_wire_segment(
+    in: []const u8,
+    allocator: *const std.mem.Allocator,
+) !std.ArrayList(WireSegment) {
     var data = std.mem.tokenizeScalar(u8, in, ',');
 
     var wire1 = std.ArrayList(WireSegment).init(allocator.*);
@@ -73,12 +104,25 @@ fn make_wire_segment(in: []const u8, allocator: *const std.mem.Allocator) !std.A
     return wire1;
 }
 
-fn find_intersections(wire1: std.ArrayList(WireSegment), wire2: std.ArrayList(WireSegment)) void {
-    _ = wire2;
-    var start = Coord{ 0, 0 };
-    _ = start;
-    // Intersection is if: x1,
-    for (wire1.items()) |segment| {
-        _ = segment;
+fn find_nearest_intersection(
+    wire1: std.ArrayList(WireSegment),
+    wire2: std.ArrayList(WireSegment),
+) !?Coord {
+    var dist: isize = std.math.maxInt(isize);
+    var coord: ?Coord = null;
+    for (wire1.items) |a| {
+        for (wire2.items) |b| {
+            if (a.intersects(&b)) {
+                const c = if (a.start.x == a.end.x) Coord{ .x = a.start.x, .y = b.start.y } else Coord{ .x = b.start.x, .y = a.start.y };
+                const d = try c.dist_manhattan();
+                if (d < dist and d != 0) {
+                    std.debug.print("Found closser intersection between {?}, {?}\n", .{ a, b });
+                    std.debug.print("New int is {?}\n", .{c});
+                    coord = c;
+                    dist = d;
+                }
+            }
+        }
     }
+    return coord;
 }
