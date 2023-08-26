@@ -13,6 +13,14 @@ const WireSegment = struct {
     start: Coord,
     end: Coord,
 
+    fn len(self: *const WireSegment) !isize {
+        if (self.start.x != self.end.x) {
+            return std.math.absInt(self.end.x - self.start.x);
+        } else {
+            return std.math.absInt(self.end.y - self.start.y);
+        }
+    }
+
     pub fn add(self: WireSegment, other: WireSegment) WireSegment {
         return WireSegment{ .x = self.x + other.x, .y = self.y + other.y };
     }
@@ -74,8 +82,8 @@ pub fn main() !void {
     const coord = (try find_nearest_intersection(
         wire1,
         wire2,
-    )).?;
-    std.debug.print("Distance is {d}\n", .{try coord.dist_manhattan()});
+    ));
+    std.debug.print("Distance is {d}\n", .{coord});
 }
 
 fn make_wire_segment(
@@ -107,14 +115,23 @@ fn make_wire_segment(
 fn find_nearest_intersection(
     wire1: std.ArrayList(WireSegment),
     wire2: std.ArrayList(WireSegment),
-) !?Coord {
+) !isize {
     var dist: isize = std.math.maxInt(isize);
     var coord: ?Coord = null;
+    var wire1_dist: isize = 0;
     for (wire1.items) |a| {
+        var wire2_dist: isize = 0;
         for (wire2.items) |b| {
             if (a.intersects(&b)) {
-                const c = if (a.start.x == a.end.x) Coord{ .x = a.start.x, .y = b.start.y } else Coord{ .x = b.start.x, .y = a.start.y };
-                const d = try c.dist_manhattan();
+                var c: Coord = undefined;
+                var d: isize = undefined;
+                if (a.start.x == a.end.x) {
+                    c = Coord{ .x = a.start.x, .y = b.start.y };
+                    d = wire1_dist + wire2_dist + try std.math.absInt(c.y - a.start.y) + try std.math.absInt(c.x - b.start.x);
+                } else {
+                    c = Coord{ .x = b.start.x, .y = a.start.y };
+                    d = wire1_dist + wire2_dist + try std.math.absInt(c.y - b.start.y) + try std.math.absInt(c.x - a.start.x);
+                }
                 if (d < dist and d != 0) {
                     std.debug.print("Found closser intersection between {?}, {?}\n", .{ a, b });
                     std.debug.print("New int is {?}\n", .{c});
@@ -122,7 +139,9 @@ fn find_nearest_intersection(
                     dist = d;
                 }
             }
+            wire2_dist += try b.len();
         }
+        wire1_dist += try a.len();
     }
-    return coord;
+    return dist;
 }
