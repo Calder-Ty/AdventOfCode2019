@@ -37,7 +37,7 @@ _main :: proc ()  {
 	reader: bufio.Reader;
 	buffer: [BUFFER_SIZE]byte;
 
-	bufio.reader_init_with_buf(&reader, {os.stream_from_handle(fh)}, buffer[:]);
+	bufio.reader_init_with_buf(&reader, os.stream_from_handle(fh), buffer[:]);
 	defer bufio.reader_destroy(&reader);
 
 	line, err := bufio.reader_read_string(&reader, '\n')
@@ -47,9 +47,14 @@ _main :: proc ()  {
 	defer delete(line);
 	prog: [BUFFER_SIZE]byte;
 	index := 0;
-	for r in line
-
-
+	offset := 0;
+	for r, i in line {
+		if r == ',' {
+			prog[index] = u8(line[offset:i])
+			offset = i + 1;
+			index += 1
+		}
+	}
 	fmt.println(prog);
 
 }
