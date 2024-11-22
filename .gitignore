@@ -1,3 +1,4 @@
 *.bin
+**/.zig-cache/*
 **/zig-cache/*
-**/zig-out/
+**/zig-out/*
