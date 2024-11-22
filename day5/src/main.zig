@@ -1,24 +1,62 @@
 const std = @import("std");
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
+    var program = try loadProgram(allocator);
+    std.mem.tokenizeScalar(
+        u8,
+        program,
+    );
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+fn loadProgram(allocator: std.heap.Alloctator) ![]u8 {
+    const fd = try std.fs.cwd().openFile("data/prod.txt", .{});
+    return fd.readToEndAlloc(allocator, 1024 * 10);
+}
+
+// Yes we have to use usize, because we could get really large outputv alues
+const Opcode = enum(usize) {
+    add = 1,
+    multiply = 2,
+    input = 3,
+    output = 4,
+    halt = 99,
+};
+
+const ParameterMode = enum(u8) {
+    position = 0,
+    immediate = 1,
+};
+
+// run the program
+fn runProgram(program: []isize) void {
+    var ip = 0;
+    main: while (true) {
+        // NOTE: This will Panic if we get something that doesn't fit
+        // we could use std.meta.intToEnum if we needed to catch the erro.
+        // For now I'm ok with panicing
+        const state: Opcode = @enumFromInt(program[ip]);
+        switch (state) {
+            .add => {
+                program[program[ip + 3]] = program[program[ip + 1]] + program[program[ip + 2]];
+                ip += 4;
+            },
+            .multiply => {
+                program[program[ip + 3]] = program[program[ip + 1]] * program[program[ip + 2]];
+                ip += 4;
+            },
+            .input => {
+                //?///
+            },
+            .output => {
+                //???
+            },
+            .halt => {
+                break :main;
+            },
+        }
+    }
 }
